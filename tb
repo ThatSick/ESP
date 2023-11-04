@@ -1,105 +1,70 @@
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local PathFindingService = game:GetService("PathfindingService")
+local HttpService = game:GetService("HttpService")
+local HTTPRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request or HttpPost
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = Workspace.CurrentCamera
+local V3new = Vector3.new
+local WorldToViewportPoint = Camera.WorldToViewportPoint
 
-for i,v in pairs(getconnections(LocalPlayer.Idled)) do
-    v:Disable()
+function DateTime()
+    local OSTime = os.time()
+    local Time = os.date('!*t', OSTime)
+    return string.format('%d-%d-%dT%02d:%02d:%02dZ', Time.year, Time.month, Time.day, Time.hour, Time.min, Time.sec)
 end
 
-local AutoAcceptOffer = false
-getgenv().SafePlace = false
 
-function GetLevel(player)
-    return Players:FindFirstChild(player):GetAttribute("Level")
-end
-
-function GetPrestige(player)
-    return Players:FindFirstChild(player):GetAttribute("Prestige")
-end
-
-function OfferItem(item)
-    local args = {
-        [1] = item,
-        [2] = "Weapons"
+function SendUnboxWebhook(Unboxed)
+    local DescriptionTable = {}
+    local rarityColors = {
+        ["Common"] = 0xBCBCBC,
+        ["UnCommon"] = 0x2986CC,
+        ["Rare"] = 0x41D100,
+        ["Legendary"] = 0xF44336,
+        ["Godly"] = 0xFF4AA8
     }
-    ReplicatedStorage.Trade.OfferItem:FireServer(unpack(args))
+    local getSyncDataRemote = game:GetService("ReplicatedStorage").GetSyncData:InvokeServer()
+    local Info = getSyncDataRemote["Item"][Unboxed]
+    local ItemType = Info["ItemType"]
+    local Rarity = Info["Rarity"]
+    local Event = Info["Event"]
+    local Image = Info["Image"]:match("assetId=(%d+)")
+
+    table.insert(DescriptionTable, "Account Name: ||"..LocalPlayer.Name.."||")
+    table.insert(DescriptionTable, "Unboxed: "..Unboxed)
+    table.insert(DescriptionTable, "Type: "..ItemType)
+    table.insert(DescriptionTable, "Rarity: "..Rarity)
+    table.insert(DescriptionTable, "Event: " .. (Event and Event or "None"))
+
+    local msg = {
+        ["username"] =  "Highlight Hub",
+        --["avatar_url"] = "https://media.istockphoto.com/id/1256233718/vector/cute-cow-vector-icon-illustration.jpg?s=612x612&w=0&k=20&c=i_MCfgGxR-6GvXYV5yZ4jNF_7VwGKxd0TMaEEyo0Mqk=",
+        ["content"] = (Rarity == "Godly") and "@everyone" or "",
+        ["embeds"] = {
+            {
+                ["color"] = rarityColors[Rarity],
+                ["title"] = "Auto Unbox",
+                ["thumbnail"] = {["url"] = HttpService:JSONDecode(game:HttpGet(("https://thumbnails.roblox.com/v1/assets?assetIds="..Image.."&size=350x350&format=Png&isCircular=false"))).data[1].imageUrl},
+                ["description"] = "**"..table.concat(DescriptionTable, "\n").."**",
+                ['timestamp'] = DateTime(),
+                ["footer"] = {
+                    ["text"] = "Highlight Hub",
+                    --["icon_url"] = "https://media.istockphoto.com/id/1256233718/vector/cute-cow-vector-icon-illustration.jpg?s=612x612&w=0&k=20&c=i_MCfgGxR-6GvXYV5yZ4jNF_7VwGKxd0TMaEEyo0Mqk="
+                },
+            },
+        },
+    }
+
+    HTTPRequest({Url = "https://discord.com/api/webhooks/1142524793745330266/tm7BcUhZDmGoFid8_Q3iLivs5ZGdn5v1HJ8BbXyd3i77NEXBRF7bCuu9zHZjka_PzNcm", Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(msg)})
 end
 
-function ForceTrade(target)
-    ReplicatedStorage.Trade.SendRequest:InvokeServer(Players:FindFirstChild(target))
-    ReplicatedStorage.Trade.AcceptRequest:FireServer()
-end
-
-function IsInTrade()
-    return LocalPlayer.PlayerGui.TradeGUI.Container.Trade.Visible or LocalPlayer.PlayerGui.TradeGUI_Phone.Container.Trade.Visible
-end
-
-function AutoAcceptOfferLoop()
-    while true do
-        if AutoAcceptOffer then
-            if LocalPlayer.PlayerGui.TradeGUI.Container.Trade.TheirOffer.Accepted.Visible or LocalPlayer.PlayerGui.TradeGUI_Phone.Container.Trade.TheirOffer.Accepted.Visible then
-                ReplicatedStorage.Trade.AcceptTrade:FireServer()
-                print()
-                AutoAcceptOffer = false
-            end
-        end
-        task.wait()
-    end
-end
-
-local AutoAcceptOfferCoroutine = coroutine.create(AutoAcceptOfferLoop)
-coroutine.resume(AutoAcceptOfferCoroutine)
-
-function Deposit(player)
-    local success, error_message = pcall(function()
-        if not player then return end
-        if not (GetLevel(LocalPlayer.Name) > 9) and not (GetPrestige(LocalPlayer.Name) == 0) then
-            print("You need to be at least level 10.")
-        else
-            if not (GetLevel(player) > 9) and not (GetPrestige(player) == 0) then
-                ForceTrade(player)
-                AutoAcceptOffer = true
-            else
-                print("The player need to be at least level 10.")
-            end
-        end
-    end)
-    if not success then
-        print(error_message)
-    end
-end
-
-function Withdraw(player, item1, item2, item3, item4)
-    local success, error_message = pcall(function()
-        if not player then return end
-        if (GetLevel(LocalPlayer.Name) > 9) and not (GetPrestige(LocalPlayer.Name) == 0) then
-            print("You need to be at least level 10.")
-        else
-            if (GetLevel(player) > 9) and not (GetPrestige(player) == 0) then
-                ForceTrade(player)
-                task.wait(2)
-                --repeat task.wait() until IsInTrade()
-                if item1 then
-                    OfferItem(item1)
-                end
-                if item2 then
-                    OfferItem(item2)
-                end
-                if item3 then
-                    OfferItem(item3)
-                end
-                if item4 then
-                    OfferItem(item4)
-                end
-                AutoAcceptOffer = true
-            else
-                print("The player need to be at least level 10.")
-            end
-        end
-    end)
-    if not success then
-        print(error_message)
-    end
-end
-
-Withdraw("Maxdenarb", "Wanwood", "Tiger", "Stalker")
+SendUnboxWebhook("Spider")
