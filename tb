@@ -53,7 +53,7 @@ function SendUnboxWebhook(Unboxed)
             {
                 ["color"] = rarityColors[Rarity],
                 ["title"] = "Auto Unbox",
-                ["thumbnail"] = {["url"] = HttpService:JSONDecode(game:HttpGet(("https://thumbnails.roblox.com/v1/assets?assetIds="..Image.."&size=350x350&format=Png&isCircular=false"))).data[1].imageUrl},
+                ["thumbnail"] = {["url"] = HttpService:JSONDecode(game:HttpGet(("https://thumbnails.roblox.com/v1/assets?assetIds="..Image.."&size=250x250&format=Png&isCircular=false"))).data[1].imageUrl},
                 ["description"] = "**"..table.concat(DescriptionTable, "\n").."**",
                 ['timestamp'] = DateTime(),
                 ["footer"] = {
